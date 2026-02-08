@@ -19,7 +19,7 @@ TofuTune is an OpenTofu/Terraform provider for managing Microsoft Intune device 
 terraform {
   required_providers {
     intune = {
-      source  = "tofutune/intune"
+      source  = "MANCHTOOLS/tofutune"
       version = "~> 0.1"
     }
   }
@@ -43,7 +43,7 @@ resource "intune_settings_catalog_policy" "security" {
 
 # Add settings using the Defender module
 module "defender" {
-  source    = "tofutune/intune//modules/defender"
+  source    = "MANCHTOOLS/tofutune//modules/defender"
   policy_id = intune_settings_catalog_policy.security.id
 
   real_time_protection = true
@@ -161,7 +161,7 @@ The provider includes pre-built modules for common configurations:
 
 ```hcl
 module "defender" {
-  source    = "tofutune/intune//modules/defender"
+  source    = "MANCHTOOLS/tofutune//modules/defender"
   policy_id = intune_settings_catalog_policy.example.id
 
   real_time_protection = true
@@ -181,7 +181,7 @@ module "defender" {
 
 ```hcl
 module "bitlocker" {
-  source    = "tofutune/intune//modules/bitlocker"
+  source    = "MANCHTOOLS/tofutune//modules/bitlocker"
   policy_id = intune_settings_catalog_policy.example.id
 
   require_device_encryption         = true
@@ -198,7 +198,7 @@ module "bitlocker" {
 
 ```hcl
 module "windows_update" {
-  source    = "tofutune/intune//modules/windows_update"
+  source    = "MANCHTOOLS/tofutune//modules/windows_update"
   policy_id = intune_settings_catalog_policy.example.id
 
   automatic_update_mode        = "auto_install_and_reboot_at_scheduled_time"
@@ -217,7 +217,7 @@ module "windows_update" {
 
 ```hcl
 module "windows_ai" {
-  source    = "tofutune/intune//modules/windows_ai"
+  source    = "MANCHTOOLS/tofutune//modules/windows_ai"
   policy_id = intune_settings_catalog_policy.example.id
 
   # Disable Windows Copilot
@@ -247,7 +247,7 @@ module "windows_ai" {
 
 ```hcl
 module "privacy" {
-  source    = "tofutune/intune//modules/privacy"
+  source    = "MANCHTOOLS/tofutune//modules/privacy"
   policy_id = intune_settings_catalog_policy.example.id
 
   # Telemetry level (security, basic, enhanced, full)
@@ -274,7 +274,7 @@ module "privacy" {
 
 ```hcl
 module "edge" {
-  source    = "tofutune/intune//modules/edge"
+  source    = "MANCHTOOLS/tofutune//modules/edge"
   policy_id = intune_settings_catalog_policy.example.id
 
   # Homepage and startup
@@ -302,7 +302,7 @@ module "edge" {
 
 ```hcl
 module "onedrive" {
-  source    = "tofutune/intune//modules/onedrive"
+  source    = "MANCHTOOLS/tofutune//modules/onedrive"
   policy_id = intune_settings_catalog_policy.example.id
 
   tenant_id = "00000000-0000-0000-0000-000000000000"
@@ -480,7 +480,7 @@ Create a `~/.terraformrc` file:
 ```hcl
 provider_installation {
   dev_overrides {
-    "tofutune/intune" = "/path/to/your/provider/binary"
+    "MANCHTOOLS/tofutune" = "/path/to/your/provider/binary"
   }
   direct {}
 }

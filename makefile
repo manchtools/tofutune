@@ -4,8 +4,8 @@ build:
 	go build -o terraform-provider-intune
 
 install: build
-	mkdir -p ~/.terraform.d/plugins/registry.terraform.io/tofutune/intune/0.1.0/linux_amd64
-	cp terraform-provider-intune ~/.terraform.d/plugins/registry.terraform.io/tofutune/intune/0.1.0/linux_amd64/
+	mkdir -p ~/.terraform.d/plugins/registry.terraform.io/MANCHTOOLS/tofutune/0.1.0/linux_amd64
+	cp terraform-provider-intune ~/.terraform.d/plugins/registry.terraform.io/MANCHTOOLS/tofutune/0.1.0/linux_amd64/
 
 test:
 	go test ./... -v

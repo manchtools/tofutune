@@ -5,7 +5,7 @@
 terraform {
   required_providers {
     intune = {
-      source  = "tofutune/intune"
+      source  = "MANCHTOOLS/tofutune"
       version = "~> 0.1"
     }
     azuread = {

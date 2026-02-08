@@ -23,7 +23,7 @@ func main() {
 	flag.Parse()
 
 	opts := providerserver.ServeOpts{
-		Address: "registry.terraform.io/tofutune/intune",
+		Address: "registry.terraform.io/MANCHTOOLS/tofutune",
 		Debug:   debug,
 	}
 
