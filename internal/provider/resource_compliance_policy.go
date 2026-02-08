@@ -41,6 +41,7 @@ type CompliancePolicyResource struct {
 // CompliancePolicyResourceModel describes the resource data model for Windows 10 compliance
 type CompliancePolicyResourceModel struct {
 	ID                                  types.String `tfsdk:"id"`
+	Type                                types.String `tfsdk:"type"`
 	DisplayName                         types.String `tfsdk:"display_name"`
 	Description                         types.String `tfsdk:"description"`
 	RoleScopeTagIds                     types.List   `tfsdk:"role_scope_tag_ids"`
@@ -167,6 +168,13 @@ resource "intune_compliance_policy" "windows" {
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				Description: "The unique identifier for the policy.",
+				Computed:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"type": schema.StringAttribute{
+				Description: "The policy type for use with intune_policy_assignment. Always 'compliance'.",
 				Computed:    true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
@@ -467,6 +475,7 @@ func (r *CompliancePolicyResource) Create(ctx context.Context, req resource.Crea
 
 	// Update the model with the created policy data
 	data.ID = types.StringValue(created.ID)
+	data.Type = types.StringValue(PolicyTypeCompliance)
 	data.CreatedDateTime = types.StringValue(created.CreatedDateTime)
 	data.LastModifiedDateTime = types.StringValue(created.LastModifiedDateTime)
 
@@ -686,6 +695,7 @@ func (r *CompliancePolicyResource) buildPolicy(data *CompliancePolicyResourceMod
 // updateModel updates the Terraform model from the API policy
 func (r *CompliancePolicyResource) updateModel(data *CompliancePolicyResourceModel, policy *clients.CompliancePolicy, diags *diag.Diagnostics) {
 	data.DisplayName = types.StringValue(policy.DisplayName)
+	data.Type = types.StringValue(PolicyTypeCompliance)
 	data.Description = types.StringValue(policy.Description)
 	data.CreatedDateTime = types.StringValue(policy.CreatedDateTime)
 	data.LastModifiedDateTime = types.StringValue(policy.LastModifiedDateTime)

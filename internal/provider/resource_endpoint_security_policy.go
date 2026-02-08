@@ -38,6 +38,7 @@ type EndpointSecurityPolicyResource struct {
 // EndpointSecurityPolicyResourceModel describes the resource data model
 type EndpointSecurityPolicyResourceModel struct {
 	ID                   types.String `tfsdk:"id"`
+	Type                 types.String `tfsdk:"type"`
 	DisplayName          types.String `tfsdk:"display_name"`
 	Description          types.String `tfsdk:"description"`
 	TemplateId           types.String `tfsdk:"template_id"`
@@ -138,6 +139,13 @@ resource "intune_endpoint_security_policy" "firewall" {
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				Description: "The unique identifier for the policy.",
+				Computed:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"type": schema.StringAttribute{
+				Description: "The policy type for use with policy assignments. Always 'endpoint_security' for this resource.",
 				Computed:    true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
@@ -316,6 +324,7 @@ func (r *EndpointSecurityPolicyResource) Create(ctx context.Context, req resourc
 
 	// Update the model with the created policy data
 	data.ID = types.StringValue(created.ID)
+	data.Type = types.StringValue(PolicyTypeEndpointSecurity)
 	data.TemplateId = types.StringValue(templateId)
 	data.CreatedDateTime = types.StringValue(created.CreatedDateTime)
 	data.LastModifiedDateTime = types.StringValue(created.LastModifiedDateTime)
@@ -448,6 +457,7 @@ func (r *EndpointSecurityPolicyResource) Read(ctx context.Context, req resource.
 	}
 
 	// Update the model
+	data.Type = types.StringValue(PolicyTypeEndpointSecurity)
 	data.DisplayName = types.StringValue(policy.DisplayName)
 	data.Description = types.StringValue(policy.Description)
 	data.TemplateId = types.StringValue(policy.TemplateId)

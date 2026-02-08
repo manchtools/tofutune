@@ -80,7 +80,7 @@ both include and exclude group assignments, as well as assignment filters.
 ` + "```hcl" + `
 resource "intune_policy_assignment" "example" {
   policy_id   = intune_settings_catalog_policy.example.id
-  policy_type = "settings_catalog"
+  policy_type = intune_settings_catalog_policy.example.type
 
   include_groups = [
     data.azuread_group.all_devices.id,
@@ -98,7 +98,7 @@ resource "intune_policy_assignment" "example" {
 ` + "```hcl" + `
 resource "intune_policy_assignment" "all_devices" {
   policy_id   = intune_compliance_policy.windows.id
-  policy_type = "compliance"
+  policy_type = intune_compliance_policy.windows.type
   all_devices = true
 }
 ` + "```" + `
@@ -108,7 +108,7 @@ resource "intune_policy_assignment" "all_devices" {
 ` + "```hcl" + `
 resource "intune_policy_assignment" "filtered" {
   policy_id   = intune_settings_catalog_policy.example.id
-  policy_type = "settings_catalog"
+  policy_type = intune_settings_catalog_policy.example.type
 
   include_groups = [data.azuread_group.all_devices.id]
 
@@ -118,6 +118,11 @@ resource "intune_policy_assignment" "filtered" {
 ` + "```" + `
 
 ## Policy Types
+
+The ` + "`policy_type`" + ` can be referenced directly from the policy resource's ` + "`type`" + ` attribute:
+- ` + "`intune_settings_catalog_policy.example.type`" + `
+- ` + "`intune_compliance_policy.example.type`" + `
+- ` + "`intune_endpoint_security_policy.example.type`" + `
 
 | Type | Description |
 |------|-------------|

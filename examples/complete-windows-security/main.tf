@@ -101,7 +101,7 @@ module "windows_update" {
 # Assign the security baseline to all devices, excluding test devices
 resource "intune_policy_assignment" "windows_security" {
   policy_id   = intune_settings_catalog_policy.windows_security.id
-  policy_type = "settings_catalog"
+  policy_type = intune_settings_catalog_policy.windows_security.type
 
   include_groups = [data.azuread_group.all_devices.id]
   exclude_groups = [data.azuread_group.test_devices.id]
@@ -152,7 +152,7 @@ resource "intune_compliance_policy" "windows" {
 # Assign compliance policy to all devices
 resource "intune_policy_assignment" "compliance" {
   policy_id   = intune_compliance_policy.windows.id
-  policy_type = "compliance"
+  policy_type = intune_compliance_policy.windows.type
 
   all_devices = true
 }

@@ -49,7 +49,7 @@ resource "intune_settings_catalog_policy_settings" "example" {
 # Assign to all devices
 resource "intune_policy_assignment" "example" {
   policy_id   = intune_settings_catalog_policy.example.id
-  policy_type = "settings_catalog"
+  policy_type = intune_settings_catalog_policy.example.type
 
   all_devices = true
 }

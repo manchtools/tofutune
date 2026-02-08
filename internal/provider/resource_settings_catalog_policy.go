@@ -37,6 +37,7 @@ type SettingsCatalogPolicyResource struct {
 // SettingsCatalogPolicyResourceModel describes the resource data model
 type SettingsCatalogPolicyResourceModel struct {
 	ID                   types.String `tfsdk:"id"`
+	Type                 types.String `tfsdk:"type"`
 	Name                 types.String `tfsdk:"name"`
 	Description          types.String `tfsdk:"description"`
 	Platforms            types.String `tfsdk:"platforms"`
@@ -90,6 +91,13 @@ resource "intune_settings_catalog_policy_settings" "defender" {
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				Description: "The unique identifier for the policy.",
+				Computed:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"type": schema.StringAttribute{
+				Description: "The policy type for use with intune_policy_assignment. Always 'settings_catalog'.",
 				Computed:    true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
@@ -245,6 +253,7 @@ func (r *SettingsCatalogPolicyResource) Create(ctx context.Context, req resource
 
 	// Update the model with the created policy data
 	data.ID = types.StringValue(created.ID)
+	data.Type = types.StringValue(PolicyTypeSettingsCatalog)
 	data.CreatedDateTime = types.StringValue(created.CreatedDateTime)
 	data.LastModifiedDateTime = types.StringValue(created.LastModifiedDateTime)
 	data.SettingCount = types.Int64Value(int64(created.SettingCount))
@@ -286,6 +295,7 @@ func (r *SettingsCatalogPolicyResource) Read(ctx context.Context, req resource.R
 
 	// Update the model
 	data.Name = types.StringValue(policy.Name)
+	data.Type = types.StringValue(PolicyTypeSettingsCatalog)
 	data.Description = types.StringValue(policy.Description)
 	data.Platforms = types.StringValue(policy.Platforms)
 	data.Technologies = types.StringValue(policy.Technologies)
