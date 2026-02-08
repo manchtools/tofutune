@@ -90,6 +90,9 @@ type CompliancePolicyResourceModel struct {
 	// Configuration Manager
 	ConfigurationManagerComplianceRequired types.Bool `tfsdk:"configuration_manager_compliance_required"`
 
+	// Assignment
+	Assignment []AssignmentModel `tfsdk:"assignment"`
+
 	// Scheduled actions
 	ScheduledActionsForRule             types.List   `tfsdk:"scheduled_actions_for_rule"`
 }
@@ -383,6 +386,7 @@ resource "intune_compliance_policy" "windows" {
 			},
 		},
 		Blocks: map[string]schema.Block{
+			"assignment": AssignmentBlockSchema(),
 			"scheduled_actions_for_rule": schema.ListNestedBlock{
 				Description: "Scheduled actions for non-compliance.",
 				NestedObject: schema.NestedBlockObject{
@@ -479,6 +483,22 @@ func (r *CompliancePolicyResource) Create(ctx context.Context, req resource.Crea
 	data.CreatedDateTime = types.StringValue(created.CreatedDateTime)
 	data.LastModifiedDateTime = types.StringValue(created.LastModifiedDateTime)
 
+	// Handle assignments if specified
+	if len(data.Assignment) > 0 {
+		assignments := BuildAssignmentsFromBlocks(ctx, data.Assignment, &resp.Diagnostics)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+
+		if err := AssignPolicy(ctx, r.client, PolicyTypeCompliance, created.ID, assignments); err != nil {
+			resp.Diagnostics.AddError(
+				"Error Assigning Policy",
+				fmt.Sprintf("Policy was created but assignment failed: %s", err),
+			)
+			return
+		}
+	}
+
 	tflog.Debug(ctx, "Created Compliance policy", map[string]interface{}{
 		"id": created.ID,
 	})
@@ -520,6 +540,18 @@ func (r *CompliancePolicyResource) Read(ctx context.Context, req resource.ReadRe
 		return
 	}
 
+	// Read assignments if the state had assignments configured
+	if len(data.Assignment) > 0 {
+		assignments, err := ReadPolicyAssignments(ctx, r.client, PolicyTypeCompliance, data.ID.ValueString())
+		if err != nil {
+			tflog.Warn(ctx, "Failed to read policy assignments", map[string]interface{}{
+				"error": err.Error(),
+			})
+		} else {
+			data.Assignment = assignments
+		}
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -554,6 +586,29 @@ func (r *CompliancePolicyResource) Update(ctx context.Context, req resource.Upda
 
 	// Update the model with the updated policy data
 	data.LastModifiedDateTime = types.StringValue(updated.LastModifiedDateTime)
+
+	// Handle assignments
+	if len(data.Assignment) > 0 {
+		assignments := BuildAssignmentsFromBlocks(ctx, data.Assignment, &resp.Diagnostics)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+
+		if err := AssignPolicy(ctx, r.client, PolicyTypeCompliance, data.ID.ValueString(), assignments); err != nil {
+			resp.Diagnostics.AddError(
+				"Error Updating Policy Assignments",
+				fmt.Sprintf("Could not update assignments: %s", err),
+			)
+			return
+		}
+	} else {
+		// Clear assignments if none specified
+		if err := AssignPolicy(ctx, r.client, PolicyTypeCompliance, data.ID.ValueString(), []clients.PolicyAssignment{}); err != nil {
+			tflog.Warn(ctx, "Failed to clear policy assignments", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }

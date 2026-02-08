@@ -19,12 +19,17 @@ provider "intune" {
   # client_secret = "your-client-secret"
 }
 
-# Create a simple Settings Catalog policy
+# Create a simple Settings Catalog policy with inline assignment
 resource "intune_settings_catalog_policy" "example" {
   name         = "Example Policy"
   description  = "A simple example policy"
   platforms    = "windows10AndLater"
   technologies = "mdm"
+
+  # Assign to all devices directly in the policy
+  assignment {
+    all_devices = true
+  }
 }
 
 # Add some settings directly (without using a module)
@@ -44,14 +49,6 @@ resource "intune_settings_catalog_policy_settings" "example" {
     value_type    = "choice"
     value         = "device_vendor_msft_defender_configuration_allowcloudprotection_1"
   }
-}
-
-# Assign to all devices
-resource "intune_policy_assignment" "example" {
-  policy_id   = intune_settings_catalog_policy.example.id
-  policy_type = intune_settings_catalog_policy.example.type
-
-  all_devices = true
 }
 
 output "policy_id" {

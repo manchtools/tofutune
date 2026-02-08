@@ -36,17 +36,18 @@ type SettingsCatalogPolicyResource struct {
 
 // SettingsCatalogPolicyResourceModel describes the resource data model
 type SettingsCatalogPolicyResourceModel struct {
-	ID                   types.String `tfsdk:"id"`
-	Type                 types.String `tfsdk:"type"`
-	Name                 types.String `tfsdk:"name"`
-	Description          types.String `tfsdk:"description"`
-	Platforms            types.String `tfsdk:"platforms"`
-	Technologies         types.String `tfsdk:"technologies"`
-	RoleScopeTagIds      types.List   `tfsdk:"role_scope_tag_ids"`
-	TemplateId           types.String `tfsdk:"template_id"`
-	CreatedDateTime      types.String `tfsdk:"created_date_time"`
-	LastModifiedDateTime types.String `tfsdk:"last_modified_date_time"`
-	SettingCount         types.Int64  `tfsdk:"setting_count"`
+	ID                   types.String      `tfsdk:"id"`
+	Type                 types.String      `tfsdk:"type"`
+	Name                 types.String      `tfsdk:"name"`
+	Description          types.String      `tfsdk:"description"`
+	Platforms            types.String      `tfsdk:"platforms"`
+	Technologies         types.String      `tfsdk:"technologies"`
+	RoleScopeTagIds      types.List        `tfsdk:"role_scope_tag_ids"`
+	TemplateId           types.String      `tfsdk:"template_id"`
+	Assignment           []AssignmentModel `tfsdk:"assignment"`
+	CreatedDateTime      types.String      `tfsdk:"created_date_time"`
+	LastModifiedDateTime types.String      `tfsdk:"last_modified_date_time"`
+	SettingCount         types.Int64       `tfsdk:"setting_count"`
 }
 
 // Metadata returns the resource type name
@@ -67,12 +68,34 @@ settings to the policy in a modular way.
 
 ## Example Usage
 
+### Basic Policy with Inline Assignment
+
 ` + "```hcl" + `
 resource "intune_settings_catalog_policy" "windows_security" {
   name         = "Windows Security Baseline"
   description  = "Corporate security settings for Windows devices"
   platforms    = "windows10AndLater"
   technologies = "mdm"
+
+  assignment {
+    all_devices = true
+  }
+}
+` + "```" + `
+
+### Policy with Group Assignments
+
+` + "```hcl" + `
+resource "intune_settings_catalog_policy" "windows_security" {
+  name         = "Windows Security Baseline"
+  description  = "Corporate security settings for Windows devices"
+  platforms    = "windows10AndLater"
+  technologies = "mdm"
+
+  assignment {
+    include_groups = [data.azuread_group.all_devices.id]
+    exclude_groups = [data.azuread_group.test_devices.id]
+  }
 }
 
 # Add settings using a separate resource or module
@@ -179,6 +202,9 @@ resource "intune_settings_catalog_policy_settings" "defender" {
 				Computed:    true,
 			},
 		},
+		Blocks: map[string]schema.Block{
+			"assignment": AssignmentBlockSchema(),
+		},
 	}
 }
 
@@ -258,6 +284,22 @@ func (r *SettingsCatalogPolicyResource) Create(ctx context.Context, req resource
 	data.LastModifiedDateTime = types.StringValue(created.LastModifiedDateTime)
 	data.SettingCount = types.Int64Value(int64(created.SettingCount))
 
+	// Handle assignments if specified
+	if len(data.Assignment) > 0 {
+		assignments := BuildAssignmentsFromBlocks(ctx, data.Assignment, &resp.Diagnostics)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+
+		if err := AssignPolicy(ctx, r.client, PolicyTypeSettingsCatalog, created.ID, assignments); err != nil {
+			resp.Diagnostics.AddError(
+				"Error Assigning Policy",
+				fmt.Sprintf("Policy was created but assignment failed: %s", err),
+			)
+			return
+		}
+	}
+
 	tflog.Debug(ctx, "Created Settings Catalog policy", map[string]interface{}{
 		"id": created.ID,
 	})
@@ -315,6 +357,18 @@ func (r *SettingsCatalogPolicyResource) Read(ctx context.Context, req resource.R
 		data.TemplateId = types.StringValue(policy.TemplateReference.TemplateId)
 	}
 
+	// Read assignments if the state had assignments configured
+	if len(data.Assignment) > 0 {
+		assignments, err := ReadPolicyAssignments(ctx, r.client, PolicyTypeSettingsCatalog, data.ID.ValueString())
+		if err != nil {
+			tflog.Warn(ctx, "Failed to read policy assignments", map[string]interface{}{
+				"error": err.Error(),
+			})
+		} else {
+			data.Assignment = assignments
+		}
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -360,6 +414,29 @@ func (r *SettingsCatalogPolicyResource) Update(ctx context.Context, req resource
 	// Update the model with the updated policy data
 	data.LastModifiedDateTime = types.StringValue(updated.LastModifiedDateTime)
 	data.SettingCount = types.Int64Value(int64(updated.SettingCount))
+
+	// Handle assignments
+	if len(data.Assignment) > 0 {
+		assignments := BuildAssignmentsFromBlocks(ctx, data.Assignment, &resp.Diagnostics)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+
+		if err := AssignPolicy(ctx, r.client, PolicyTypeSettingsCatalog, data.ID.ValueString(), assignments); err != nil {
+			resp.Diagnostics.AddError(
+				"Error Updating Policy Assignments",
+				fmt.Sprintf("Could not update assignments: %s", err),
+			)
+			return
+		}
+	} else {
+		// Clear assignments if none specified
+		if err := AssignPolicy(ctx, r.client, PolicyTypeSettingsCatalog, data.ID.ValueString(), []clients.PolicyAssignment{}); err != nil {
+			tflog.Warn(ctx, "Failed to clear policy assignments", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }

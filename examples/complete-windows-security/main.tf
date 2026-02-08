@@ -35,12 +35,18 @@ data "azuread_group" "test_devices" {
 # Settings Catalog Policy with Modular Settings
 # ============================================================================
 
-# Create the base policy
+# Create the base policy with inline assignment
 resource "intune_settings_catalog_policy" "windows_security" {
   name         = "Windows Security Baseline"
   description  = "Comprehensive Windows security configuration"
   platforms    = "windows10AndLater"
   technologies = "mdm"
+
+  # Assign to all devices, excluding test devices
+  assignment {
+    include_groups = [data.azuread_group.all_devices.id]
+    exclude_groups = [data.azuread_group.test_devices.id]
+  }
 }
 
 # Add Microsoft Defender settings using the pre-built module
@@ -98,15 +104,6 @@ module "windows_update" {
   allow_driver_updates         = true
 }
 
-# Assign the security baseline to all devices, excluding test devices
-resource "intune_policy_assignment" "windows_security" {
-  policy_id   = intune_settings_catalog_policy.windows_security.id
-  policy_type = intune_settings_catalog_policy.windows_security.type
-
-  include_groups = [data.azuread_group.all_devices.id]
-  exclude_groups = [data.azuread_group.test_devices.id]
-}
-
 # ============================================================================
 # Compliance Policy
 # ============================================================================
@@ -147,14 +144,11 @@ resource "intune_compliance_policy" "windows" {
       grace_period_hours = 24  # Give users 24 hours to become compliant
     }
   }
-}
 
-# Assign compliance policy to all devices
-resource "intune_policy_assignment" "compliance" {
-  policy_id   = intune_compliance_policy.windows.id
-  policy_type = intune_compliance_policy.windows.type
-
-  all_devices = true
+  # Assign to all devices
+  assignment {
+    all_devices = true
+  }
 }
 
 # ============================================================================

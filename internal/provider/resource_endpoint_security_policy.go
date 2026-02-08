@@ -37,16 +37,17 @@ type EndpointSecurityPolicyResource struct {
 
 // EndpointSecurityPolicyResourceModel describes the resource data model
 type EndpointSecurityPolicyResourceModel struct {
-	ID                   types.String `tfsdk:"id"`
-	Type                 types.String `tfsdk:"type"`
-	DisplayName          types.String `tfsdk:"display_name"`
-	Description          types.String `tfsdk:"description"`
-	TemplateId           types.String `tfsdk:"template_id"`
-	TemplateType         types.String `tfsdk:"template_type"`
-	RoleScopeTagIds      types.List   `tfsdk:"role_scope_tag_ids"`
-	Settings             types.String `tfsdk:"settings_json"`
-	CreatedDateTime      types.String `tfsdk:"created_date_time"`
-	LastModifiedDateTime types.String `tfsdk:"last_modified_date_time"`
+	ID                   types.String      `tfsdk:"id"`
+	Type                 types.String      `tfsdk:"type"`
+	DisplayName          types.String      `tfsdk:"display_name"`
+	Description          types.String      `tfsdk:"description"`
+	TemplateId           types.String      `tfsdk:"template_id"`
+	TemplateType         types.String      `tfsdk:"template_type"`
+	RoleScopeTagIds      types.List        `tfsdk:"role_scope_tag_ids"`
+	Settings             types.String      `tfsdk:"settings_json"`
+	Assignment           []AssignmentModel `tfsdk:"assignment"`
+	CreatedDateTime      types.String      `tfsdk:"created_date_time"`
+	LastModifiedDateTime types.String      `tfsdk:"last_modified_date_time"`
 }
 
 // Known template types for endpoint security
@@ -203,6 +204,9 @@ resource "intune_endpoint_security_policy" "firewall" {
 				Computed:    true,
 			},
 		},
+		Blocks: map[string]schema.Block{
+			"assignment": AssignmentBlockSchema(),
+		},
 	}
 }
 
@@ -328,6 +332,22 @@ func (r *EndpointSecurityPolicyResource) Create(ctx context.Context, req resourc
 	data.TemplateId = types.StringValue(templateId)
 	data.CreatedDateTime = types.StringValue(created.CreatedDateTime)
 	data.LastModifiedDateTime = types.StringValue(created.LastModifiedDateTime)
+
+	// Handle assignments if specified
+	if len(data.Assignment) > 0 {
+		assignments := BuildAssignmentsFromBlocks(ctx, data.Assignment, &resp.Diagnostics)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+
+		if err := AssignPolicy(ctx, r.client, PolicyTypeEndpointSecurity, created.ID, assignments); err != nil {
+			resp.Diagnostics.AddError(
+				"Error Assigning Policy",
+				fmt.Sprintf("Policy was created but assignment failed: %s", err),
+			)
+			return
+		}
+	}
 
 	tflog.Debug(ctx, "Created Endpoint Security policy", map[string]interface{}{
 		"id": created.ID,
@@ -471,6 +491,18 @@ func (r *EndpointSecurityPolicyResource) Read(ctx context.Context, req resource.
 		data.RoleScopeTagIds = tagIds
 	}
 
+	// Read assignments if the state had assignments configured
+	if len(data.Assignment) > 0 {
+		assignments, err := ReadPolicyAssignments(ctx, r.client, PolicyTypeEndpointSecurity, data.ID.ValueString())
+		if err != nil {
+			tflog.Warn(ctx, "Failed to read policy assignments", map[string]interface{}{
+				"error": err.Error(),
+			})
+		} else {
+			data.Assignment = assignments
+		}
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -532,6 +564,29 @@ func (r *EndpointSecurityPolicyResource) Update(ctx context.Context, req resourc
 			fmt.Sprintf("Could not update policy settings: %s", err),
 		)
 		return
+	}
+
+	// Handle assignments
+	if len(data.Assignment) > 0 {
+		assignments := BuildAssignmentsFromBlocks(ctx, data.Assignment, &resp.Diagnostics)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+
+		if err := AssignPolicy(ctx, r.client, PolicyTypeEndpointSecurity, data.ID.ValueString(), assignments); err != nil {
+			resp.Diagnostics.AddError(
+				"Error Updating Policy Assignments",
+				fmt.Sprintf("Could not update assignments: %s", err),
+			)
+			return
+		}
+	} else {
+		// Clear assignments if none specified
+		if err := AssignPolicy(ctx, r.client, PolicyTypeEndpointSecurity, data.ID.ValueString(), []clients.PolicyAssignment{}); err != nil {
+			tflog.Warn(ctx, "Failed to clear policy assignments", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
