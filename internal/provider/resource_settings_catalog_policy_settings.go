@@ -405,6 +405,141 @@ func (r *SettingsCatalogPolicySettingsResource) convertChildSetting(child ChildS
 	}
 }
 
+// convertAPISettingsToModel converts API settings back to the Terraform model format
+func (r *SettingsCatalogPolicySettingsResource) convertAPISettingsToModel(ctx context.Context, apiSettings []clients.SettingsCatalogPolicySetting, diags *diag.Diagnostics) types.List {
+	var settings []SettingModel
+
+	for _, apiSetting := range apiSettings {
+		if apiSetting.SettingInstance == nil {
+			continue
+		}
+
+		instance := apiSetting.SettingInstance
+		setting := SettingModel{
+			DefinitionID: types.StringValue(instance.SettingDefinitionId),
+			Children:     types.ListNull(types.ObjectType{AttrTypes: ChildSettingModelAttrTypes()}),
+		}
+
+		// Determine the value type and extract the value
+		switch {
+		case instance.SimpleSettingValue != nil:
+			setting.ValueType, setting.Value = r.parseSimpleSettingValue(instance.SimpleSettingValue)
+
+		case instance.ChoiceSettingValue != nil:
+			setting.ValueType = types.StringValue("choice")
+			setting.Value = types.StringValue(instance.ChoiceSettingValue.Value)
+			// Handle children for choice settings
+			if len(instance.ChoiceSettingValue.Children) > 0 {
+				setting.Children = r.parseChildSettings(ctx, instance.ChoiceSettingValue.Children, diags)
+			}
+
+		case len(instance.SimpleSettingCollectionValue) > 0:
+			setting.ValueType = types.StringValue("collection")
+			var values []string
+			for _, v := range instance.SimpleSettingCollectionValue {
+				values = append(values, fmt.Sprintf("%v", v.Value))
+			}
+			jsonBytes, _ := json.Marshal(values)
+			setting.Value = types.StringValue(string(jsonBytes))
+
+		case instance.GroupSettingValue != nil:
+			setting.ValueType = types.StringValue("group")
+			setting.Value = types.StringNull()
+			if len(instance.GroupSettingValue.Children) > 0 {
+				setting.Children = r.parseChildSettings(ctx, instance.GroupSettingValue.Children, diags)
+			}
+
+		default:
+			// Unknown setting type, skip
+			tflog.Warn(ctx, "Unknown setting type", map[string]interface{}{
+				"definition_id": instance.SettingDefinitionId,
+				"odata_type":    instance.ODataType,
+			})
+			continue
+		}
+
+		settings = append(settings, setting)
+	}
+
+	// Convert to types.List
+	if len(settings) == 0 {
+		return types.ListNull(types.ObjectType{AttrTypes: SettingModelAttrTypes()})
+	}
+
+	settingsList, listDiags := types.ListValueFrom(ctx, types.ObjectType{AttrTypes: SettingModelAttrTypes()}, settings)
+	diags.Append(listDiags...)
+
+	return settingsList
+}
+
+// parseSimpleSettingValue parses a simple setting value and returns the value type and value
+func (r *SettingsCatalogPolicySettingsResource) parseSimpleSettingValue(ssv *clients.SimpleSettingValue) (types.String, types.String) {
+	if ssv == nil {
+		return types.StringNull(), types.StringNull()
+	}
+
+	switch ssv.ODataType {
+	case "#microsoft.graph.deviceManagementConfigurationStringSettingValue":
+		return types.StringValue("string"), types.StringValue(fmt.Sprintf("%v", ssv.Value))
+
+	case "#microsoft.graph.deviceManagementConfigurationIntegerSettingValue":
+		return types.StringValue("integer"), types.StringValue(fmt.Sprintf("%v", ssv.Value))
+
+	case "#microsoft.graph.deviceManagementConfigurationBooleanSettingValue":
+		boolVal, ok := ssv.Value.(bool)
+		if !ok {
+			return types.StringValue("boolean"), types.StringValue(fmt.Sprintf("%v", ssv.Value))
+		}
+		if boolVal {
+			return types.StringValue("boolean"), types.StringValue("true")
+		}
+		return types.StringValue("boolean"), types.StringValue("false")
+
+	default:
+		// Treat unknown types as string
+		return types.StringValue("string"), types.StringValue(fmt.Sprintf("%v", ssv.Value))
+	}
+}
+
+// parseChildSettings parses child settings from the API format
+func (r *SettingsCatalogPolicySettingsResource) parseChildSettings(ctx context.Context, apiChildren []clients.SettingsCatalogPolicySetting, diags *diag.Diagnostics) types.List {
+	var children []ChildSettingModel
+
+	for _, apiChild := range apiChildren {
+		if apiChild.SettingInstance == nil {
+			continue
+		}
+
+		instance := apiChild.SettingInstance
+		child := ChildSettingModel{
+			DefinitionID: types.StringValue(instance.SettingDefinitionId),
+		}
+
+		switch {
+		case instance.SimpleSettingValue != nil:
+			child.ValueType, child.Value = r.parseSimpleSettingValue(instance.SimpleSettingValue)
+
+		case instance.ChoiceSettingValue != nil:
+			child.ValueType = types.StringValue("choice")
+			child.Value = types.StringValue(instance.ChoiceSettingValue.Value)
+
+		default:
+			continue
+		}
+
+		children = append(children, child)
+	}
+
+	if len(children) == 0 {
+		return types.ListNull(types.ObjectType{AttrTypes: ChildSettingModelAttrTypes()})
+	}
+
+	childList, listDiags := types.ListValueFrom(ctx, types.ObjectType{AttrTypes: ChildSettingModelAttrTypes()}, children)
+	diags.Append(listDiags...)
+
+	return childList
+}
+
 // Create creates the resource and sets the initial Terraform state
 func (r *SettingsCatalogPolicySettingsResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var data SettingsCatalogPolicySettingsResourceModel
@@ -476,16 +611,23 @@ func (r *SettingsCatalogPolicySettingsResource) Read(ctx context.Context, req re
 		return
 	}
 
-	// Convert API settings back to model
-	// Note: This is a simplified read - in production, you'd want to properly
-	// map all the settings back to the Terraform model
+	// If no settings exist, remove the resource
 	if len(policy.Settings) == 0 {
-		// No settings, remove the resource
 		resp.State.RemoveResource(ctx)
 		return
 	}
 
-	// Keep the existing state since we successfully read the policy
+	// Convert API settings back to Terraform model
+	data.Settings = r.convertAPISettingsToModel(ctx, policy.Settings, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	tflog.Debug(ctx, "Read Settings Catalog policy settings", map[string]interface{}{
+		"policy_id":      policyID,
+		"settings_count": len(policy.Settings),
+	})
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
