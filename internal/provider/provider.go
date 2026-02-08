@@ -16,7 +16,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 
-	"github.com/tofutune/tofutune/internal/clients"
+	"github.com/MANCHTOOLS/tofutune/internal/clients"
 )
 
 // Ensure IntuneProvider satisfies various provider interfaces

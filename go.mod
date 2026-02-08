@@ -1,6 +1,6 @@
-module github.com/tofutune/tofutune
+module github.com/MANCHTOOLS/tofutune
 
-go 1.22.0
+go 1.25.0
 
 require (
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.14.0

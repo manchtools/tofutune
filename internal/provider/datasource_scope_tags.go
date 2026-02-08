@@ -11,7 +11,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
-	"github.com/tofutune/tofutune/internal/clients"
+	"github.com/MANCHTOOLS/tofutune/internal/clients"
 )
 
 // Ensure provider defined types fully satisfy framework interfaces
