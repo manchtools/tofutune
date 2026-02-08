@@ -373,6 +373,8 @@ func (p *IntuneProvider) Resources(ctx context.Context) []func() resource.Resour
 		NewCompliancePolicyResource,
 		NewEndpointSecurityPolicyResource,
 		NewPolicyAssignmentResource,
+		NewScopeTagResource,
+		NewAssignmentFilterResource,
 	}
 }
 
@@ -382,5 +384,7 @@ func (p *IntuneProvider) DataSources(ctx context.Context) []func() datasource.Da
 		NewSettingDefinitionDataSource,
 		NewSettingsCatalogTemplateDataSource,
 		NewPolicyDataSource,
+		NewScopeTagsDataSource,
+		NewAssignmentFiltersDataSource,
 	}
 }

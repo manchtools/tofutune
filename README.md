@@ -124,8 +124,9 @@ The service principal or user must have the following Microsoft Graph API permis
 
 | Permission | Type | Description |
 |------------|------|-------------|
-| `DeviceManagementConfiguration.ReadWrite.All` | Application | Settings Catalog policies |
+| `DeviceManagementConfiguration.ReadWrite.All` | Application | Settings Catalog policies, assignment filters |
 | `DeviceManagementManagedDevices.ReadWrite.All` | Application | Compliance policies |
+| `DeviceManagementRBAC.ReadWrite.All` | Application | Scope tags |
 | `Group.Read.All` | Application | Read groups for assignments |
 
 ## Resources
@@ -139,6 +140,8 @@ The service principal or user must have the following Microsoft Graph API permis
 | `intune_compliance_policy` | Device compliance policy (Windows 10/11) |
 | `intune_endpoint_security_policy` | Endpoint security policy |
 | `intune_policy_assignment` | Policy assignment to groups |
+| `intune_scope_tag` | Role scope tag for RBAC |
+| `intune_assignment_filter` | Assignment filter for dynamic device targeting |
 
 ### Data Sources
 
@@ -147,6 +150,8 @@ The service principal or user must have the following Microsoft Graph API permis
 | `intune_setting_definition` | Look up setting definition IDs |
 | `intune_settings_catalog_template` | Look up template information |
 | `intune_policy` | Read existing policies |
+| `intune_scope_tags` | List all scope tags |
+| `intune_assignment_filters` | List assignment filters |
 
 ## Pre-built Modules
 
@@ -315,6 +320,101 @@ module "onedrive" {
 
   # Update ring
   update_ring = "production"  # enterprise, production, insiders, deferred
+}
+```
+
+## Scope Tags
+
+Scope tags allow you to control which Intune objects administrators can see and manage:
+
+```hcl
+# Create a scope tag for the engineering team
+resource "intune_scope_tag" "engineering" {
+  display_name = "Engineering"
+  description  = "Scope tag for engineering team devices and policies"
+}
+
+# Use the scope tag in a policy
+resource "intune_settings_catalog_policy" "engineering_policy" {
+  name               = "Engineering Device Configuration"
+  platforms          = "windows10AndLater"
+  technologies       = "mdm"
+  role_scope_tag_ids = [intune_scope_tag.engineering.id]
+}
+```
+
+### List Existing Scope Tags
+
+```hcl
+data "intune_scope_tags" "all" {}
+
+output "all_scope_tags" {
+  value = data.intune_scope_tags.all.scope_tags
+}
+```
+
+## Assignment Filters
+
+Assignment filters allow you to dynamically include or exclude devices from policy assignments based on device properties:
+
+```hcl
+# Filter for Surface devices
+resource "intune_assignment_filter" "surface_devices" {
+  display_name = "Surface Devices"
+  description  = "Filter for Microsoft Surface devices"
+  platform     = "windows10AndLater"
+  rule         = "(device.model -startsWith \"Surface\")"
+}
+
+# Filter by manufacturer
+resource "intune_assignment_filter" "dell_devices" {
+  display_name = "Dell Devices"
+  platform     = "windows10AndLater"
+  rule         = "(device.manufacturer -eq \"Dell Inc.\")"
+}
+
+# Use filter in policy assignment
+resource "intune_settings_catalog_policy" "surface_settings" {
+  name         = "Surface Pro Settings"
+  platforms    = "windows10AndLater"
+  technologies = "mdm"
+
+  assignment {
+    all_devices = true
+    filter_id   = intune_assignment_filter.surface_devices.id
+    filter_type = "include"
+  }
+}
+```
+
+### Filter Rule Syntax
+
+| Operator | Description |
+|----------|-------------|
+| `-eq` | Equals |
+| `-ne` | Not equals |
+| `-startsWith` | Starts with |
+| `-contains` | Contains |
+| `-in` | In array |
+| `-notIn` | Not in array |
+
+Common device properties for filtering:
+
+- `device.deviceOwnership` - Corporate, Personal
+- `device.manufacturer` - Device manufacturer
+- `device.model` - Device model
+- `device.osVersion` - Operating system version
+- `device.deviceCategory` - Device category
+
+### List Existing Filters
+
+```hcl
+# List all filters
+data "intune_assignment_filters" "all" {}
+
+# Filter by platform
+data "intune_assignment_filters" "windows" {
+  platform = "windows10AndLater"
 }
 ```
 

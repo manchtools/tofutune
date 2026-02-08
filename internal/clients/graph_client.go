@@ -418,6 +418,29 @@ type Applicability struct {
 	Technologies string   `json:"technologies,omitempty"`
 }
 
+// ScopeTag represents an Intune role scope tag
+type ScopeTag struct {
+	ODataType   string `json:"@odata.type,omitempty"`
+	ID          string `json:"id,omitempty"`
+	DisplayName string `json:"displayName"`
+	Description string `json:"description,omitempty"`
+	IsBuiltIn   bool   `json:"isBuiltIn,omitempty"`
+}
+
+// AssignmentFilter represents an Intune assignment filter
+type AssignmentFilter struct {
+	ODataType                string   `json:"@odata.type,omitempty"`
+	ID                       string   `json:"id,omitempty"`
+	DisplayName              string   `json:"displayName"`
+	Description              string   `json:"description,omitempty"`
+	Platform                 string   `json:"platform"`
+	Rule                     string   `json:"rule"`
+	RoleScopeTags            []string `json:"roleScopeTags,omitempty"`
+	CreatedDateTime          string   `json:"createdDateTime,omitempty"`
+	LastModifiedDateTime     string   `json:"lastModifiedDateTime,omitempty"`
+	AssignmentFilterManagementType string `json:"assignmentFilterManagementType,omitempty"`
+}
+
 // Intune API paths
 const (
 	// Settings Catalog
@@ -437,6 +460,12 @@ const (
 
 	// Assignments
 	PathAssignments                 = "/assignments"
+
+	// Scope Tags
+	PathScopeTags                   = "/deviceManagement/roleScopeTags"
+
+	// Assignment Filters
+	PathAssignmentFilters           = "/deviceManagement/assignmentFilters"
 )
 
 // CreateSettingsCatalogPolicy creates a new Settings Catalog policy
@@ -648,4 +677,166 @@ func (c *GraphClient) GetSettingDefinition(ctx context.Context, id string) (*Set
 	}
 
 	return &def, nil
+}
+
+// ============================================================================
+// Scope Tag Methods
+// ============================================================================
+
+// CreateScopeTag creates a new role scope tag
+func (c *GraphClient) CreateScopeTag(ctx context.Context, tag *ScopeTag) (*ScopeTag, error) {
+	resp, err := c.Post(ctx, PathScopeTags, tag)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create scope tag: %w", err)
+	}
+
+	respBytes, _ := json.Marshal(resp)
+	var created ScopeTag
+	if err := json.Unmarshal(respBytes, &created); err != nil {
+		return nil, fmt.Errorf("failed to parse created scope tag: %w", err)
+	}
+
+	if created.ID == "" {
+		created.ID = resp.ID
+	}
+
+	return &created, nil
+}
+
+// GetScopeTag retrieves a scope tag by ID
+func (c *GraphClient) GetScopeTag(ctx context.Context, id string) (*ScopeTag, error) {
+	path := fmt.Sprintf("%s/%s", PathScopeTags, id)
+	resp, err := c.Get(ctx, path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get scope tag: %w", err)
+	}
+
+	respBytes, _ := json.Marshal(resp)
+	var tag ScopeTag
+	if err := json.Unmarshal(respBytes, &tag); err != nil {
+		return nil, fmt.Errorf("failed to parse scope tag: %w", err)
+	}
+
+	if tag.ID == "" {
+		tag.ID = resp.ID
+	}
+
+	return &tag, nil
+}
+
+// UpdateScopeTag updates a scope tag
+func (c *GraphClient) UpdateScopeTag(ctx context.Context, id string, tag *ScopeTag) (*ScopeTag, error) {
+	path := fmt.Sprintf("%s/%s", PathScopeTags, id)
+	_, err := c.Patch(ctx, path, tag)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update scope tag: %w", err)
+	}
+
+	return c.GetScopeTag(ctx, id)
+}
+
+// DeleteScopeTag deletes a scope tag
+func (c *GraphClient) DeleteScopeTag(ctx context.Context, id string) error {
+	path := fmt.Sprintf("%s/%s", PathScopeTags, id)
+	return c.Delete(ctx, path)
+}
+
+// ListScopeTags lists all scope tags
+func (c *GraphClient) ListScopeTags(ctx context.Context) ([]ScopeTag, error) {
+	items, err := c.ListAll(ctx, PathScopeTags)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list scope tags: %w", err)
+	}
+
+	var tags []ScopeTag
+	for _, item := range items {
+		var tag ScopeTag
+		if err := json.Unmarshal(item, &tag); err != nil {
+			continue
+		}
+		tags = append(tags, tag)
+	}
+
+	return tags, nil
+}
+
+// ============================================================================
+// Assignment Filter Methods
+// ============================================================================
+
+// CreateAssignmentFilter creates a new assignment filter
+func (c *GraphClient) CreateAssignmentFilter(ctx context.Context, filter *AssignmentFilter) (*AssignmentFilter, error) {
+	resp, err := c.Post(ctx, PathAssignmentFilters, filter)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create assignment filter: %w", err)
+	}
+
+	respBytes, _ := json.Marshal(resp)
+	var created AssignmentFilter
+	if err := json.Unmarshal(respBytes, &created); err != nil {
+		return nil, fmt.Errorf("failed to parse created assignment filter: %w", err)
+	}
+
+	if created.ID == "" {
+		created.ID = resp.ID
+	}
+
+	return &created, nil
+}
+
+// GetAssignmentFilter retrieves an assignment filter by ID
+func (c *GraphClient) GetAssignmentFilter(ctx context.Context, id string) (*AssignmentFilter, error) {
+	path := fmt.Sprintf("%s/%s", PathAssignmentFilters, id)
+	resp, err := c.Get(ctx, path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get assignment filter: %w", err)
+	}
+
+	respBytes, _ := json.Marshal(resp)
+	var filter AssignmentFilter
+	if err := json.Unmarshal(respBytes, &filter); err != nil {
+		return nil, fmt.Errorf("failed to parse assignment filter: %w", err)
+	}
+
+	if filter.ID == "" {
+		filter.ID = resp.ID
+	}
+
+	return &filter, nil
+}
+
+// UpdateAssignmentFilter updates an assignment filter
+func (c *GraphClient) UpdateAssignmentFilter(ctx context.Context, id string, filter *AssignmentFilter) (*AssignmentFilter, error) {
+	path := fmt.Sprintf("%s/%s", PathAssignmentFilters, id)
+	_, err := c.Patch(ctx, path, filter)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update assignment filter: %w", err)
+	}
+
+	return c.GetAssignmentFilter(ctx, id)
+}
+
+// DeleteAssignmentFilter deletes an assignment filter
+func (c *GraphClient) DeleteAssignmentFilter(ctx context.Context, id string) error {
+	path := fmt.Sprintf("%s/%s", PathAssignmentFilters, id)
+	return c.Delete(ctx, path)
+}
+
+// ListAssignmentFilters lists all assignment filters
+func (c *GraphClient) ListAssignmentFilters(ctx context.Context) ([]AssignmentFilter, error) {
+	items, err := c.ListAll(ctx, PathAssignmentFilters)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list assignment filters: %w", err)
+	}
+
+	var filters []AssignmentFilter
+	for _, item := range items {
+		var filter AssignmentFilter
+		if err := json.Unmarshal(item, &filter); err != nil {
+			continue
+		}
+		filters = append(filters, filter)
+	}
+
+	return filters, nil
 }
