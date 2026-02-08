@@ -493,3 +493,7 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ## License
 
 This project is licensed under the Mozilla Public License 2.0 - see the [LICENSE](LICENSE) file for details.
+
+## Disclaimer
+
+Most of the code in this repository was generated with the assistance of AI tools. While the code has been tested and reviewed, users should thoroughly test and validate the provider in their own environments before production use.
